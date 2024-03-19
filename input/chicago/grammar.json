@@ -1,0 +1,49 @@
+{
+    "physical_data": {
+        "layers": [
+            {
+                "id": "",
+                "edges": "",
+                "orientation": {
+                    "reference": "",
+                    "type": ""
+                },
+                "radius": 3,
+                "segment": {
+                    "n_cols": 1,
+                    "n_rows": 4,
+                    "unit": {
+                        "properties": {},
+                        "type": "point"
+                    }
+                },
+                "type": ""
+            }
+        ],
+        "map": {
+            "center": [
+                41.88199188922012,
+                -87.62778901271656
+            ],
+            "zoom": 10
+        }
+    },
+    "thematic_data": {
+        "data": [
+            [
+                3,
+                4,
+                6,
+                8,
+                10
+            ],
+            [
+                6,
+                9,
+                23,
+                12,
+                21
+            ]
+        ]
+    }
+}
