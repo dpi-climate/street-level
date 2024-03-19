@@ -1,0 +1,9 @@
+:root {
+  --jse-font-size-mono: 14px!important;
+}
+
+.grammar {
+  overflow:auto;
+  font-size: 24px;
+  height: calc(100% - 105px);
+}
