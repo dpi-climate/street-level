@@ -1,0 +1,10 @@
+.range-container {
+    display: inline-flex; /* Display items side by side */
+    align-items: center; /* Align items vertically */
+    gap: 10px; /* Spacing between items */
+    white-space: nowrap; /* Prevent text from wrapping */
+}
+
+.range-value {
+    white-space: nowrap; /* Prevent text from wrapping */
+}

@@ -3,77 +3,62 @@ import paths from "../consts/route-paths"
 import { IMasterGrammar } from "./interfaces"
 
 export abstract class DataLoader {
+
+  static async getMapData(mapId: string, geoDataId: string, thematicId: string | string[], layerId: any) {
+    const method = 'get'
     
-  static async getJsonData(url: string) {
+    const url = `${paths.serverUrl}/geojson`
+    const data = { params: { mapId, geoDataId, thematicId, layerId } }
+    const response = await axios[method](url, data)
 
-    const response = await fetch(url, {
-      headers: {
-        'Accept-Encoding': 'gzip',
-        'Accept': 'application/json'
-      }
-    })
+    const geojson = response.data 
+      ? response.data
+      : { mapId: null, geojson: null}
 
-    if(!response.ok) return null
+    return geojson
+  }
+  
+  static async getElements() {
+    const method = 'get'   
+    const url = `${paths.serverUrl}/elements`
+    const response = await axios[method](url)
+    return response.data
 
-    let json = {}
-    let jsonString = ''
-
-    const contentEncoding = response.headers.get('Content-Encoding')
-
-    if (contentEncoding && contentEncoding.includes('gzip')) { // if the response is encoded
-
-      const blob = await response.blob()
-
-      await new Promise((resolve, reject) => {
-        const addFunc = (value: any) => {
-          jsonString += value
-        }
-
-        parseFile(blob, {add: addFunc, done: resolve}) // Read in chunks
-      })
-
-      json = JSON.parse(jsonString)
+  }
+  
+  static async getGeojson() {
+    const method = 'get'   
+    const url = `${paths.serverUrl}/geojson`
+    const response = await axios[method](url)
+    return response.data
+  }
     
-    } else {
+  static async getGrammar(id: string) {
+    const url = `${paths.serverUrl}/grammar`
+    const method = 'get'
+    const data = { params: { id } }
+    const response = await axios[method](url, data)
 
-      json = await response.json()
-    }
+    return response.data
 
-    return json
+  }
 
-    function parseFile(file: any, callback: any) {
-      const fileSize = file.size
-      const chunkSize = 64 * 1024 // bytes
-      let offset = 0
-      let chunkReaderBlock: any = null
+  static async getPlotData(elemId: any, lat: any, lon: any, layerId:any) {
+    const url = `${paths.serverUrl}/plot`
+    const method = 'get'
+    const data = { params: { elemId, lat, lon, layerId } }
+    const response = await axios[method](url, data)
 
-      const readEventHandler = function(evt: any) {
-          if (evt.target.error == null) {
-              offset += evt.target.result.length
-              callback.add(evt.target.result) // callback for handling read chunk
-          } else {
-              console.log("Read error: " + evt.target.error)
-              return
-          }
-          if (offset >= fileSize) {
-              callback.done(undefined)
-              return
-          }
+    return response.data
 
-          // of to the next chunk
-          chunkReaderBlock(offset, chunkSize, file)
-      }
+  }
+  
+  static loadMaps = async () => {
+    const url = `${paths.serverUrl}/maps`
+    const method = 'get'
+    const response = await axios[method](url)
 
-      chunkReaderBlock = function(_offset: any, length: any, _file: any) {
-          var r = new FileReader()
-          var blob = _file.slice(_offset, length + _offset)
-          r.onload = readEventHandler
-          r.readAsText(blob)
-      }
-
-      // now let's start the read with the first block
-      chunkReaderBlock(offset, chunkSize, file)
-    }
+    return response.data
   }
 
   static async getInput(url: string, fileName:string) {
@@ -85,11 +70,11 @@ export abstract class DataLoader {
     
   } 
 
-  static async postGrammar(grammar: string) {
-
-    const url = `${paths.serverUrl}/updateGrammar`
+  static async postGrammar(content: string) {
+    console.log("PostGrammar")
+    const url = `${paths.serverUrl}/grammar`
     const method = 'post'
-    const data = { grammar }
+    const data = { content }
     
     await axios[method](url, data)
 
