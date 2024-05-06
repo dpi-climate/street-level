@@ -1,73 +1,184 @@
 import "./Home.css"
 import React, { useEffect, useState } from 'react'
 import Grammar from '../grammar/Grammar'
-import MainView from "../main-view/MainView"
-import DataManager from "../../data-logic/data-manager"
-import { IMasterGrammar, IMap, ILayer } from "../../data-logic/interfaces"
+import Views from "../views/Views"
+import { DataLoader } from "../../data-logic/data-loader"
+import MapLayer from "../../map-layer"
+// import $ from "jquery"
 
+import { Spinner } from 'react-bootstrap'
 
 const Home: React.FC = () => {
 
-  const dataManager: DataManager = new DataManager()
+  const [loading, setLoading] = useState<boolean>(false)
+  
+  const [activeGrammarId, setGrammarId] = useState<string>("")
+  const [grammarContent, setGrammarContent] = useState<any>(null)
 
-  const [grammarContent, setGrammarContent] = useState<IMasterGrammar | null>(null)
-  const [map, setMap] = useState<IMap | null>(null)
-  const [layers, setLayers] = useState<ILayer | null>(null)
-  const [data, setData] = useState<number[][]>([])
+  const [map, setMap] = useState<any>(null)
 
-  const updateGrammar = async (strGrammar: string) => {
-    await dataManager.applyGrammar(strGrammar)
+  const [elements, setElements] = useState<any>([])
+  const [mapData, setMapData] = useState<any>({ mapId: null, geojson: null})
+  const[newMapData, setNewMapData] = useState<any>([])
+  const [grammarGrid, setGrammarGrid] = useState<any>({})
+  const [mainDiv, setMainDiv] = useState<any>(null)
 
-    setGrammarContent(dataManager.getGrammarContent())
-    setMap(dataManager.getMap())
-    setData(dataManager.getData())
-    
+  const getElements = async () => {
+    const _elements = await DataLoader.getElements()
+    const elementsTsx:any = []
+
+    for (const element of _elements) {
+      if (element.type === "map") {
+        // const { dropdown:_, ...obj } = element
+
+        const obj = { ...element }
+        obj.dropdown = {}
+        
+        for (const groupName in element.dropdown) {
+          obj.dropdown[groupName] = []
+
+          for(const layer of element.dropdown[groupName]) {
+            const mapLayer = new MapLayer(layer)
+            obj.dropdown[groupName].push(mapLayer)
+
+          }
+        }
+        elementsTsx.push(obj)
+      } else if (element.type === "map_plot") {
+        const obj = { ...element }
+        elementsTsx.push(obj)
+      }
+    }
+
+    setElements(elementsTsx)
   }
   
-  const handleGrammar = async () => {
-    const _grammarContent = await dataManager.loadGrammarContent()
+  const updateGrammarId = async (grammarId : string) => {
+    const grammar = await DataLoader.getGrammar(grammarId)
     
-    setGrammarContent(_grammarContent)
-    setMap(dataManager.getMap())
-    setData(dataManager.getData())
+    if (grammarId === "master") { setGrammarGrid(grammar.grid) }
+    
+    setGrammarContent(grammar)
+    setGrammarId(grammarId)
+    
+  }
+
+  const applyGrammar = async (strGrammar: string) => {
+    setLoading(true)
+    await DataLoader.postGrammar(strGrammar)
+
+    setNewMapData([])
+    getElements()
+    setLoading(false)
+
+  }
+
+  const renderSpinner = () => {
+    const left = window.innerWidth / 2
+    const top  = window.innerHeight / 2
+    
+    if(loading) {
+      return (
+        <div style={{zIndex:1001, position:"absolute", left, top}}>
+          <Spinner animation="grow" variant="info"/>
+        </div>
+    )
+    } else {
+      return null
+    }
+  }
+
+  const render = () => {
+    
+    if(grammarContent && mainDiv){
+      return (
+        <React.Fragment>
+          {renderSpinner()}
+          <div className='component' style={{padding: 0, width: "100vw", height:"100vh"}}>
+            <Views 
+              mainDiv={mainDiv}
+              elements={elements}
+              grammarGrid={grammarGrid}
+              newMapData={newMapData}
+              mapData={mapData}
+              map={map}   
+              updateGrammarId={updateGrammarId}
+              updateMapData={updateNewMapData}
+              />
+          </div>
+            <Grammar 
+              content={grammarContent} 
+              updateGrammar={applyGrammar} 
+              updateGrammarId={updateGrammarId}
+            />
+        </React.Fragment>
+      )
+    } else {
+      return null
+    }
+  }
+
+  const updateNewMapData = async (mapId: string, itemObj: any) => {
+    console.log(itemObj)
+    const newElements = [...elements]
+    
+    const mapIdx = newElements.findIndex((elem: any) => elem.id === mapId)
+    const mapElement = newElements[mapIdx]
+
+    const groupItemIdx = mapElement.dropdown[itemObj.group].findIndex((l: any) => l.id === itemObj.id)
+
+    let _newMapData = [...newMapData]
+    
+    const sameGeoDataLayerIdx = _newMapData.findIndex((d: any) => d.mapId === mapId && d.geoDataId === itemObj.geoDataId)
+    
+    if(!mapElement.dropdown[itemObj.group][groupItemIdx].visible) {
+
+      if( sameGeoDataLayerIdx > -1) {        
+        const sameGeoDataLayerGroup = _newMapData[sameGeoDataLayerIdx].group
+        const sameGeoDataDropdownIdx = mapElement.dropdown[sameGeoDataLayerGroup].findIndex((elem: any) => elem.id === _newMapData[sameGeoDataLayerIdx].layerId)
+        
+        mapElement.dropdown[sameGeoDataLayerGroup][sameGeoDataDropdownIdx].visible = false
+        
+        _newMapData = _newMapData.filter((d: any) => {
+          if(d.mapId === mapId) {
+            if(d.geoDataId !== itemObj.geoDataId) {
+              return true
+            } else {
+              return false
+            }
+          } else {
+            return true
+          }
+          // d.mapId === mapId && d.geoDataId !== itemObj.geoDataId
+        })
+      }
+      const _mapData: any = await DataLoader.getMapData(mapId, itemObj.geoDataId, itemObj.thematicId, itemObj.id) //{mapId:""} //
+      _newMapData.push(_mapData)
+      
+    } else {
+      _newMapData = _newMapData.filter((m:any) => m.mapId !== mapId || m.layerId !== itemObj.id)
+    }
+    
+    mapElement.dropdown[itemObj.group][groupItemIdx].visible = !mapElement.dropdown[itemObj.group][groupItemIdx].visible
+    
+    setNewMapData(_newMapData)
+    setElements(newElements)
 
   }
 
   useEffect(() => {
-    handleGrammar()
-
+    // $("#home").empty()
+    const m = document.querySelector("#home")
+    setMainDiv(m)
+    updateGrammarId("master")
+    getElements()
   }, [])
-
   
+  
+  
+  return <div className="home" id="home">{ render() }</div>
 
-  if(grammarContent &&  map) {
-    return (
-      <React.Fragment>
-      <div className="home">
-        <div className='component' style={{padding: 0, position: "absolute", left: "7px", top: "7px", width: "1800px", height: "800px"}}>
-          <MainView map={map} data={data}/>
-        </div>
-        <div className='component grammar-wrapper grammar-wrapper--isOpen'>
-          <Grammar content={grammarContent} updateGrammar={updateGrammar}/>
-        </div>
-      </div>
-    </React.Fragment>
-    )
-  } else {
-    return <></>
-  }
+
 }
-
-// const Home: React.FC = () => {
-//   return (
-//     <React.Fragment>
-//       <div className="home">
-//         <div className='component' style={{padding: 0, position: "absolute", left: "7px", top: "7px", width: "1800px", height: "800px"}}>
-//           <GraphicalDisplays/>
-//         </div>
-//       </div>
-//     </React.Fragment>
-//   )
-// }
 
 export default Home

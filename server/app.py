@@ -1,5 +1,5 @@
 from flask_cors import CORS
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, jsonify
 
 import json
 
@@ -14,65 +14,59 @@ mainPath = '../input/chicago'
 grammarpath = f'{mainPath}/grammar.json'
 
 structure = Structure()
+structure.startServer()
 
-@app.route("/", methods=("GET", "POST"))
-def init():
-
-    grammar = structure.readGrammar()
-    return grammar
-    # if("grammar" in request.args):
-
-    # grammarBool = request.args.get('grammar')
-
-    # grammar = {}
-    # with open(grammarpath, "r", encoding="utf-8") as f:
-    #     grammar = json.load(f)
-
-    # if(grammarBool == "True"): # activate grammar
-    #     grammar["grammar"] = True            
-    # elif(grammarBool == "False"):
-    #     grammar["grammar"] = False
-
-    # with open(grammarpath, "w", encoding="utf-8") as f:
-    #     f.write(json.dumps(grammar, indent=4))
-    # # print(grammar)
-    # return grammar
-
-@app.route("/grammar", methods=("GET", "POST"))
+@app.route("/grammar", methods=("GET", 'POST'))
 def handleGrammar():
-
-    grammarBool = request.args.get('grammar')
-
-    grammar = {}
-    with open(grammarpath, "r", encoding="utf-8") as f:
-        grammar = json.load(f)
-
-    if(grammarBool == "True"): # activate grammar
-        grammar["grammar"] = True            
-    elif(grammarBool == "False"):
-        grammar["grammar"] = False
-
-    with open(grammarpath, "w", encoding="utf-8") as f:
-        f.write(json.dumps(grammar, indent=4))
-        # f.write(grammar)
-
-    return grammar
-
-
-@app.route("/input", methods=("GET",))
-def handleInput():
-    fileName = request.args.get("fileName")
-
-    with open(f"{mainPath}/{fileName}", "r", encoding="utf-8") as f:
-        input = json.load(f)
+    if request.method == "GET":
+        id = request.args["id"]
+        grammar = structure.getGrammar(id)
+        return json.dumps(grammar, indent=4)
     
-    return input
+    else:
+        # structure.writeGrammar(json.loads(request.json['content']))
+        structure.writeGrammar(request.json['content'])
+        return ""
 
-@app.route("/updateGrammar", methods=("POST",))
-def updateGrammar():
-    grammar = json.loads(request.json['grammar'])
+@app.route("/maps", methods=("GET", "POST"))
+def handleMaps():
+    if request.method == "GET":
+        elements = structure.getElements()
+        
+        return json.dumps(elements)
+    
+@app.route("/geojson", methods=("GET",))
+def handleShapefile():
+    if request.method == "GET":
+        mapId = request.args["mapId"]
+        layerId = request.args["layerId"]
+        geoDataId = request.args["geoDataId"]
+        
+        if "thematicId" in request.args.keys():
+            thematicId = request.args["thematicId"]
+        else:
+            thematicId = request.args.getlist('thematicId[]')
 
-    with open(grammarpath, "w", encoding="utf-8") as f:
-        f.write(json.dumps(grammar, indent=4, sort_keys=True))
+        geojson = structure.getGeoData(mapId, layerId, geoDataId, thematicId)
+        
+        return jsonify(geojson)
+    else:
+        return ""
+    
+@app.route("/elements",  methods=("GET",))
+def handleElements():
+    if request.method == "GET":
+        elements = structure.getElements()
+        return json.dumps(elements)
+    
+@app.route("/plot")
+def handlePlot():
+    if request.method == "GET":
+        elemId = request.args["elemId"]
+        lat = request.args["lat"]
+        lon = request.args["lon"]
+        layerId = request.args["layerId"]
 
-    return ""
+        obj = structure.handleClickLayer(elemId, lat, lon, layerId)
+
+        return json.dumps(obj)
